@@ -1,0 +1,255 @@
+---
+title: 'Final Data Essay: Who Votes For Whom?'
+author: "Yanik L. Kipfer"
+date: '`r format(Sys.time(), "%d %B, %Y")`'
+output:
+   pdf_document:
+    fig_caption: true
+subparagraph: true
+fontsize: 12pt
+geometry: "left=2.5cm,right=2.5cm,top=2.5cm,bottom=2.5cm"
+header-includes:
+  - \usepackage{enumerate}
+  - \usepackage{setspace}\doublespacing
+---
+```{r setup, include=FALSE}
+######### Data Labelling and Filtering ######### 
+
+# Load Data
+load("data.Rda")
+
+# Load Packages
+library(dplyr)
+library(magrittr)
+library(car)
+
+# Filter for needed variables
+dta <- df2 %>% select(v8a, v58b, v58c, v50a2, soc_iss, auth_val, gov_eval)
+
+# recode variables values
+dta$v8a[dta$v8a %in% c("none/dont know", "refused", "skipped")] <- NA
+dta$v58c[dta$v58c %in% c(99,98,97)] <- NA
+dta$v50a2[dta$v50a2 %in% c("skipped", "no info re status")] <- NA
+
+# recode employment class
+## workers
+dta$v50a2<-recode(dta$v50a2,"c('employee--no details','all oth employees')='worker'")
+## managers
+dta$v50a2 <- recode(dta$v50a2, "c('employee-foreman','employee--mgr no det','employee--mgr sml','employee--mgr lge')='managment'")
+## self-employed
+dta$v50a2 <- recode(dta$v50a2, "c('self-emp--lge estab','self-emp--sml estab','self-emp--no emps','self-emp--no details')='self employed'")
+
+# Omit NAs
+dta <- dta %>% na.omit()
+
+# Reset factor variables - Drop factors with no observations
+dta[] <- lapply(dta, function (x) if(is.factor(x)) factor(x) else x)
+```
+
+# 1. Introduction
+The question of why some people tend to vote for a particular party while others do not, lies at the heart of political science research literature. Not surprisingly, one can find various theories which try to offer an answer to this question by explaining which factors might affect a person's vote choice. These theories range from the structuralist theory, which believes that societal conflicts or cleavages to be the main factor driving an individual’s vote choice, to rational choice theories, which argue that individuals are rational actors who vote for the party that maximizes their utility, and incumbent performance theories, which state that voters will tend to vote for the incumbent, as long as they are satisfied with his performance. 
+However, while such theories deliver an essential contribution in the decision on which factors to include when trying to model voting behaviour, they to do not, per se, indicate how exactly voting behaviour should be modelled.
+This essay, therefore, tries to address these two central issues, namely the debate over which theory is the most plausible and the question over how to model vote choice in an empirical study.
+Following, I will firstly give a short overview of the pertinent theories concerning vote choice and develop hypotheses based on these theories to test their plausibility. Secondly, I will quickly describe the data used to test the hypotheses and thirdly also introduce the method used. Lastly, I will turn to the results and their interpretation and finish with a conclusion on the findings of the study.
+
+# 2. Hypotheses
+Three central theories on voting behaviour are addressed in this essay. The first, the structuralist theory, argues that cleavages in society are the main force in determining which party an individual chooses to vote for.
+The **structuralist literature** identifies four central societal conflicts. On the one hand, the conflict between state and church and the conflict between nation-building culture and the religiously, linguistically or ethnically distinct subject populations originated out of the national revolution. On the other hand, the industrial revolution produced the conflict between workers and employers, as well as the conflict between urban and landed interests. Thus, out of this theory, we can derive the hypothesis that *individuals belonging to the working class, are more likely to vote Labour* (H1).
+The second theory, the **rational choice theory**, states that individuals are rational actors and as such try to maximize their utility by choosing those parties, which are most in line with their political interests. As such, *individuals who tend to identify more strongly with leftist ideology, are more likely to vote for leftist parties, such as the Labour party *(H2).
+The third theory which we will call the **incumbent performance theory** criticizes the assumption that individuals are rational actors and argues that people find it challenging to position the different parties accurately and, thus, are unable to identify the party which will maximize their utility. Therefore, individuals will instead evaluate the performance of the incumbent government. If the individual is satisfied with the governing party's performance, he will be inclined to vote for again. If he is dissatisfied, he will choose to vote for an opposition party. Since the incumbent party during the 1987 elections was the Conservative party, the third hypothesis is that *individuals that evaluate the incumbent government's performance positively, will more likely vote for the conservative party *(H3).
+
+
+# 3. Data
+To test our hypotheses, we use data from the British Election Study of 1987. The dataset contains cross-sectional information on the vote choice, sociodemographic variables and opinions on welfare and authority topics of 6000 individuals from Scotland, Wales, and England. 
+The dependent variable is the *vote choice* of the individual during the general elections. Figure 1 shows the distribution of votes over the parties. We can see that most people voted for the Conservative party, followed by the Labour and the Alliance Party.
+\par
+
+```{r,results = "asis", echo = FALSE, message=FALSE}
+####### Descriptive Statistics #######
+
+# Load Packages
+library(stargazer)
+library(ggplot2)
+library(gridExtra)
+library(knitr)
+
+# Plot of dependent variable distribution
+dep <- dta %>%
+   select(v8a) %>%
+   group_by(v8a) %>%
+   tally() %>%
+   arrange()
+
+kable(dep, caption = "Distribution Of The Dependent Variable", col.names = c("Vote Choice", "Count"))
+```
+
+Four variables are used as our primary independent variables. To test our first hypothesis (H1), we use an *employer-class* variable. The variable captures the social class by categorizing an individual as either being a worker, a manager or self-employed. Table 2 shows the distribution of the employer-class variable. Most of the individuals belong to the worker category.
+\newpage
+
+```{r,results = "asis", echo = FALSE, message=FALSE}
+emp <- dta %>%
+   select(v50a2) %>%
+   group_by(v50a2) %>%
+   tally() %>%
+   arrange()
+
+kable(emp, caption = "Distribution Of The Employment Class", col.names = c("Class", "Count"))
+```
+
+For the second hypothesis, we use the two indices which measure an individual's standing on *social issues* and on *authoritarian values*. Higher values in the authoritarian values index indicate a more left-leaning ideology, while higher values in the social issues index indicate a more right-leaning ideology. Lastly, I use a government evaluation index to measure an individual’s opinion on the performance of the incumbent government. Higher values in the government evaluation index indicate a more favourable opinion of the performance. Additionally, two control variables ( *Age* and *Gender*) are included in all models.
+Table 3 shows descriptive statistics for the Social Issues, Authoritarian Values, Government Evaluation variables and the control variables. On average, the people in our sample are in the middle of the ideological scale and are more or less satisfied with the incumbent's performance. This can be seen by looking at the mean values of the Social Issues, Authoritarian Values and Government Evaluation variables.
+
+```{r,results = "asis", echo = FALSE, message=FALSE}
+stats <- dta %>% select(soc_iss, auth_val, gov_eval)
+
+stargazer(stats, type = "latex", title = "Descriptive Statistics", covariate.labels = c("Social Issues", "Authoritarian Values", "Government Evaluation") , digits = 2, header = F)
+```
+
+
+# 4. Method
+In order to test the three theories, I have created three different models. For all three models, the depended variable is the *Vote Choice* and, additionally, I include *Age* and *Gender* as control variables in all models.
+To test the structuralist theory through the hypothesis H1, I use *Employment Class* as the main explanatory variable. 
+Hypothesis H2 is tested by using *Social Issues* and *Authoritarian Values* as independent variables, while the independent variable *Government Evaluation* is used to test H3.
+All three models are estimated by multinomial logit models (MNL). I chose MNL because we are dealing with a nominal dependent variable and the independent variables in the models have a different effect (different coefficients) on each of the outcomes, while the values of the explanatory variables remain the same.
+
+# 5. Results
+I the following section, I present the results of the estimations. To facilitate the comprehension and presentation of the results I will present each model separately, starting with the structural theory model.
+
+## 5.1 Hypothesis 1: Structural Model
+Table 4 shows the results for the first hypothesis concerning the structural choice theory.
+
+```{r, results = "asis", echo = FALSE, message=FALSE}
+##### Hypothesis 1: Cleavages ######
+
+# Load Package
+library(nnet)
+
+# Set reference category
+dta$v8a <- relevel(dta$v8a, ref="conservative")
+
+dta$v58b <- relevel(dta$v58b, ref = "female")
+
+dta$v50a2 <- relevel(dta$v50a2, ref = "worker")
+
+# Run Multinomial Logit
+model1 <- multinom(v8a ~ v50a2 + v58b + v58c, data = dta, trace = F)
+
+# Output Regression Table
+stargazer(model1, type = "latex", title="Model for Rational Choice Hypothesis",covariate.labels = c("Constant","Management","Self-Employed","Male","Age"), intercept.bottom = F, digits = 2, header = F, font.size = "small", column.sep.width = "-5pt")
+```
+
+When interpreting coefficients in MNL models, we always need to interpret them relative to the reference class of the dependent variable. In our case, the reference class is the Conservative Party. 
+Looking at our regression output we can see, that belonging to the Management Category significantly decreases the odds of voting for Labour, Alliance and Green relative to voting for Conservative. This decrease in odds is of greater magnitude for the green party (-9.58) than for the Alliance (-0.27) or even Labour (-0.94). Thus the odds of voting for the Green Party would be expected to decrease by -9.58 units while holding all other variables in the model constant, thereby, making it less likely to vote for the Green Party.
+Furthermore, belonging to the Self-Employment Category also significantly decreases the odds of voting for Labour and Alliance relative to voting for Conservative. This decrease in odds is of greater magnitude for the Labour party (-1.23*) than for the Alliance (-0.68). The odds of voting for the Labour Party relative to Conservative would, therefore, be expected to decrease by -1.23 units while holding all other variables in the model constant, thereby, making it less likely to vote for the Labour Party.
+The Constant represents the multinomial logit estimate for a particular party when the predictor variables in the model are evaluated at zero. Thus, in our model, the constant is the estimate for a Female Individual who belongs to the worker's class. Here we see a positive relationship between being a female worker and voting for the Labour party. This seems to fit into our previously formulated H1 hypothesis. 
+To better visualize the effect of belonging to different Employment-Classes on the probability of voting for a particular party, we simulate expected values across the three different Employment Classes, while holding all other independent variables at their mean value. Figure 1 shows the predicted probabilities. Here we can see that individuals who belong to the worker category will tend to be more likely to vote for the Labour party, while they will be less likely to vote for the Conservative party, thus, supporting the claims made by H1.
+
+```{r, results = "asis", echo = FALSE, message=FALSE, warning=F}
+##### Expected Values #####
+
+#Load Package
+library(glm.predict)
+
+# Simulate Values for a 46 year old man
+output1 <- predicts(model1, "F;F(2);46")
+
+# Plot Expected Values
+ 
+## employment class
+ ggplot(output1, aes(x = v50a2, fill = level,col = level, y = mean, ymin=lower, ymax=upper)) +
+   geom_line(aes(x = v50a2, fill = level,col = level, y = mean, ymin=lower, ymax=upper)) +
+   geom_pointrange(aes(ymax = upper, ymin = lower)) +
+   ylab("Predicted probability") + ggtitle("Figure 1: Predicted Values For Different Employment Classes") +
+   xlab("Employment Class") +
+   facet_grid(~level) +
+   theme_gray(base_size = 10) +
+   theme(text = element_text(size=10),
+      axis.text.x = element_text(angle=70, hjust=1),
+      legend.position = "none")
+```
+\newpage
+
+## 5.2 Hypothesis 2: Rational Choice
+Table 5 shows the results for the rational choice model, which is used to the hypothesis H2. As before, we interpret the coefficients relative to the Conservative party.
+On the one hand, we see, that higher values in the Social Issues Index lead to a decrease in the odds of voting for all of the parties relative to voting for Conservative. This effect is statistically significant for the Labour party, alliance and Scottish National Party. This indicates that individuals who identify with more right-wing ideologies will be more likely to vote for the Conservative Party.
+On the other hand, the effect of authoritarian values is not significant for any of the parties.
+
+```{r, results = "asis", echo = FALSE, message=FALSE}
+##### Hypothesis 1: Rational Choice ######
+
+# Run Multinomial Logit
+model2 <- multinom( v8a ~ soc_iss + auth_val + v58b + v58c, data= dta, trace = F)
+
+stargazer(model2, type = "latex", title="Model for Rational Choice Hypothesis", covariate.labels = c("Constant","Social Issues Index", "Authoritarian Values", "Male", "Age"), intercept.bottom = F, header = FALSE, digits = 2, font.size = "small", column.sep.width = "-5pt")
+```
+\newpage
+
+Figure 2 once again plots the simulated predicted probabilities for a range of Social Issues values. Here it becomes even clearer, that higher values in the Social Issues Index and, thereby, a more right-leaning individual is more likely to vote conservative and less likely to vote Labour or alliance. These findings are in support of H2.
+\par
+
+```{r,results = "asis", echo = FALSE, message=FALSE}
+#### Expected Values ####
+
+# Simulate Values
+output2 <- predicts(model2, "7-35,1;14;F(2);46")
+
+# Plot Expected Values
+# social issues
+ggplot(output2, aes(x = soc_iss, y = mean, ymin = lower, ymax = upper, color = level, fill = level)) + geom_line() +
+  geom_ribbon(alpha=0.4) +
+   theme(legend.position = "none") +
+  labs(y="Predicted probability", x="Social Issues Index", title = "Figure 2: Expected Values for Varying Social Issues Values") + 
+  scale_fill_manual(name="Party vote",values=c("yellow","blue","green","red","darkgreen","yellow")) + 
+  scale_color_manual(name="Party vote",values=c("yellow","blue","green","red","darkgreen","yellow")) +
+  scale_y_continuous(labels = scales::percent) + 
+  facet_grid(~level)
+```
+\newpage
+
+## 5.3 Hypothesis 3: Incumbent Performance
+Table 6 presents the estimation for the incumbent performance model, which is used to test the hypothesis H3. 
+Looking at the coefficients for Government Evaluation, we can immediately see a negative relationship between higher values in Government Evaluation and the odds of voting for the other parties relative to the Conservative party. This means that people who were satisfied with the performance of the incumbent party, which in this case was the Conservative party, we more likely to vote conservative during the general election and less likely to vote for the other parties. This effect is statistically significant at a 5%-level for the Labour, Alliance and Scottish National Party.
+
+```{r, results = "asis", echo = FALSE, message=FALSE}
+##### Hypothesis 3: Incumbent Performance #####
+
+# Run Multinomial Logit Regression
+# Model:
+model3 <- multinom(v8a ~ gov_eval + v58b + v58c , data= dta, trace = F)
+
+# Output Regression Table
+stargazer(model3, type = "latex", title="Model for Government Peformance Hypothesis" ,covariate.labels = c("Constant","Government Evaluation","Male","Age"), intercept.bottom = F, header = FALSE, digits = 2, font.size = "small", column.sep.width = "-5pt")
+```
+
+Finally, Figure 3 shows the predicted values for a varying range of values for Government Evaluation. As can be clearly seen, higher values in Government Evaluation increase the predicted probability of voting for the Conservative party, thereby, substantiating the claim made by H3.
+
+```{r,results = "asis", echo = FALSE, message=FALSE}
+##### Expected Values ##### 
+
+# Simulate Values
+output3 <- predicts(model3, "7-28,1;F(2);46")
+
+# Plot Expected Values
+ggplot(output3, aes(x = gov_eval, y = mean, ymin = lower, ymax = upper, color = level, fill = level)) + geom_line() +
+  geom_ribbon(alpha=0.4) +
+   theme(legend.position = "none") +
+  labs(y="Predicted probability", x="Government Evaluation", title = "Figure 3: Expected Values for Varying Values of Government Evaluation") + 
+  scale_fill_manual(name="Party vote",values=c("yellow","blue","green","red","darkgreen","yellow")) + 
+  scale_color_manual(name="Party vote",values=c("yellow","blue","green","red","darkgreen","yellow")) +
+  scale_y_continuous(labels = scales::percent) + 
+  facet_grid(~level)
+```
+\newpage
+
+# 6. Conclusion
+The purpose of this essay was to model and test the structural, rational choice and incumbent performance theories on voting behaviour through three hypotheses derived from these theories.
+To conduct the analysis, I used a dataset from the British Election Study of 1987 containing cross-sectional information on 6000 individuals from Scotland, Wales, and England and created three multinomial logit models to test the hypotheses.
+I showed that congruent with the structural theory, individuals belonging to the working class are more likely to vote labour, while self-employed individuals are more likely to for the Conservative Party. Furthermore, as postulated by the rational choice theory, individuals will tend to vote for those parties which are closest to their individual interests. Thus, left-leaning individuals will be more likely to vote for the Labour Party, than the Conservative Party.
+Finally, we showed that the more satisfied an individual is with the incumbent's performance, the more likely he will vote for him, thereby, supporting the argument made by the incumbent theory. Overall, all three theories are plausible, since our models were not able to reject any of them.
+However, the study performed in this essay has its limitations. On the one hand, the rational choice theory could have been better modelled by a conditional logit model, which would have been able to take into account the distance between the individuals and the parties positions. However, for such a model, we would have needed more information on the individual parties positions, which were not sufficiently provided in the dataset.
+On the other hand, the three hypotheses are not nearly sufficient to fully test all aspects provided by the theories. As an example, the structural theory alone identifies four different cleavages, which are all argued to be potential factors in shaping voting behaviour. Thus, further study into the subject of voting behaviour is needed to address the aforementioned issues better.
+```{rresults = "asis", echo = FALSE, message=FALSE}
+# Put code in chunks into R file
+purl("essay.Rmd")
+```
+
